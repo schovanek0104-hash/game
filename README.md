@@ -13,5 +13,5 @@ pomoci. **cursor**, a `chatGPT`. co mi pomohly a jeste budu delat
 
 a tohlensto je vse 
 
-
+[clikni na to a budes me hře](https://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index.html)
 
