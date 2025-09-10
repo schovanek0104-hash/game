@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SquareJump</title>
+<style>
+  body {
+    margin:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+    background:#fafafa;
+    font-family:Arial, sans-serif;
+  }
+  canvas {
+    background:#fff;
+    border:2px solid #333;
+    display:block;
+    width:100%;
+    max-width:900px;
+    height:300px;
+    touch-action:none;
+  }
+  #scoreboard {
+    position:absolute;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:20px;
+    font-weight:bold;
+    font-family:monospace;
+  }
+</style>
+</head>
+<body>
+<div id="scoreboard">Score: 0 | Best: 0</div>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = 900;
+canvas.height = 300;
+
+let groundHeight = 40;
+
+// Dino-like tuning
+const gravity = 0.20;
+const jumpVelocity = -10.5;
+let baseSpeed = 1.0;
+const speedIncrease = 0.0009;
+const spawnIntervalMin = 3000;
+const spawnIntervalMax = 5000;
+
+let player, obstacles, lastTime, running, gameOver, score, best, nextSpawnAt, speedMultiplier;
+
+function resetGame() {
+  player = {
+    x: 80,
+    size: 40,
+    y: canvas.height - groundHeight - 40,
+    vy: 0,
+    onGround: true
+  };
+  obstacles = [];
+  lastTime = performance.now();
+  running = true;
+  gameOver = false;
+  score = 0;
+  speedMultiplier = 0.1;
+  nextSpawnAt = performance.now() + rand(spawnIntervalMin, spawnIntervalMax);
+  best = Number(localStorage.getItem("squarejump_best") || 0);
+  updateScoreboard();
+}
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randInt(a,b){ return Math.floor(rand(a,b+1)); }
+
+function spawnObstacle(now) {
+  const size = randInt(25, 45);
+  obstacles.push({
+    x: canvas.width + 20,
+    y: canvas.height - groundHeight - size,
+    size,
+    passed:false
+  });
+  nextSpawnAt = now + rand(spawnIntervalMin, spawnIntervalMax) / (1 + (speedMultiplier-1)/2);
+}
+
+function doJump() {
+  if (!running) { resetGame(); return; }
+  if (gameOver) { resetGame(); return; }
+  if (player.onGround) {
+    player.vy = jumpVelocity;
+    player.onGround = false;
+  }
+}
+
+window.addEventListener("keydown",(e)=>{
+  if (e.code==="Space"||e.code==="ArrowUp") {
+    e.preventDefault();
+    doJump();
+  }
+});
+canvas.addEventListener("pointerdown",()=>doJump());
+
+function collide(a,b) {
+  return !(a.x + a.size <= b.x ||
+           a.x >= b.x + b.size ||
+           a.y + a.size <= b.y ||
+           a.y >= b.y + b.size);
+}
+
+function update(delta) {
+  if (!running) return;
+  score += delta * 0.01;
+  speedMultiplier += delta * speedIncrease;
+
+  player.vy += gravity;
+  player.y += player.vy;
+  const groundY = canvas.height - groundHeight - player.size;
+  if (player.y >= groundY) {
+    player.y = groundY;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  const now = performance.now();
+  if (now >= nextSpawnAt) spawnObstacle(now);
+
+  const speed = baseSpeed * speedMultiplier;
+  for (let i=obstacles.length-1;i>=0;i--) {
+    const ob = obstacles[i];
+    ob.x -= speed;
+    if (!ob.passed && ob.x + ob.size < player.x) {
+      ob.passed = true;
+      score += 2;
+    }
+    if (ob.x + ob.size < -50) obstacles.splice(i,1);
+  }
+
+  for (const ob of obstacles) {
+    if (collide(player, ob)) {
+      triggerGameOver();
+      break;
+    }
+  }
+
+  updateScoreboard();
+}
+
+function triggerGameOver() {
+  running = false;
+  gameOver = true;
+  const s = Math.floor(score);
+  if (s > best) {
+    best = s;
+    localStorage.setItem("squarejump_best", best);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#444";
+  ctx.fillRect(0, canvas.height-groundHeight, canvas.width, groundHeight);
+
+  // player
+  ctx.fillStyle="#1f8ef1";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+
+  // obstacles
+  ctx.fillStyle="#e74c3c";
+  for (const ob of obstacles) {
+    ctx.fillRect(ob.x, ob.y, ob.size, ob.size);
+  }
+
+  if (gameOver) {
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#fff";
+    ctx.font="bold 28px monospace";
+    ctx.textAlign="center";
+    ctx.fillText("Game Over", canvas.width/2, canvas.height/2 - 20);
+    ctx.font="16px monospace";
+    ctx.fillText("Press Space or Tap to Restart", canvas.width/2, canvas.height/2 + 20);
+  }
+}
+
+function updateScoreboard() {
+  document.getElementById("scoreboard").textContent =
+    `Score: ${Math.floor(score)} | Best: ${best}`;
+}
+
+function loop(now) {
+  if (!lastTime) lastTime = now;
+  const delta = now - lastTime;
+  lastTime = now;
+
+  update(delta);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetGame();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
