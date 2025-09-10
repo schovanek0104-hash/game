@@ -5,13 +5,18 @@ square jump
 
 to je hra co je na googlu dino game (kdy nemas internet).
 
-pomoci. **cursor**, a `chatGPT`. co mi pomohly a jeste budu delat
+pomoci  `cursor`  a  `chatGPT` a jeste budu delat hry ale ted je jenom **square jump**
 
-  * 3D hry
+  * 3D hry `ve staveni`
   * VR hry
-  * s dalsi
+  * a dalsi
 
-a tohlensto je vse 
+a tohlensto je vse
 
-[clikni na to a budes me hře](https://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index.html)
+[klikni a hraj](ttps://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index.html)
 
+a skus me porazit `2400`  **score**
+
+simple3D
+--------
+tahlensta hra je ve staveni aktualne ale s podporou `cursor`  a `chatGPT` to stavime
