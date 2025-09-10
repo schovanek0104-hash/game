@@ -14,10 +14,17 @@
 </head>
 <body>
   <div id="hud">Score: <span id="score">0</span> | Time: <span id="time">30</span>s</div>
-  <div id="overlay"><div id="card"><div style="font-weight:700;margin-bottom:8px">Time up</div><div>Final score: <span id="final">0</span></div><button id="reset" style="margin-top:12px;padding:8px 12px;border-radius:10px;border:0;background:black;color:white">Play again</button></div></div>
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+  <div id="overlay">
+    <div id="card">
+      <div style="font-weight:700;margin-bottom:8px">Time up</div>
+      <div>Final score: <span id="final">0</span></div>
+      <button id="reset" style="margin-top:12px;padding:8px 12px;border-radius:10px;border:0;background:black;color:white">Play again</button>
+    </div>
+  </div>
 
+  <!-- Three.js globální -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script>
     // Renderer
     const renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -25,7 +32,7 @@
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Scene + Camera (top-down isometric)
+    // Scene + Camera
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
     const camera = new THREE.OrthographicCamera(-6,6,6,-6,0.1,100);
@@ -50,20 +57,31 @@
 
     // Walls
     const wallMat = new THREE.MeshStandardMaterial({color:0x222222});
-    const makeWall = (x,z,ry)=>{
+    function makeWall(x,z,ry){
       const m = new THREE.Mesh(new THREE.BoxGeometry(0.1,1,8), wallMat);
-      m.position.set(x,0.5,z); m.rotation.y = ry; scene.add(m);
-    };
-    makeWall(-4,0,0); makeWall(4,0,0); makeWall(0,-4,Math.PI/2); makeWall(0,4,Math.PI/2);
+      m.position.set(x,0.5,z);
+      m.rotation.y = ry;
+      scene.add(m);
+    }
+    makeWall(-4,0,0);
+    makeWall(4,0,0);
+    makeWall(0,-4,Math.PI/2);
+    makeWall(0,4,Math.PI/2);
 
     // Player
-    const player = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.5}));
-    player.position.y = 0.5; player.castShadow = true; scene.add(player);
+    const player = new THREE.Mesh(
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.5})
+    );
+    player.position.y = 0.5;
+    player.castShadow = true;
+    scene.add(player);
 
     // Target
     const targetMat = new THREE.MeshStandardMaterial({emissive:0xffaa00, emissiveIntensity:1});
     const target = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35,0), targetMat);
-    target.castShadow = true; scene.add(target);
+    target.castShadow = true;
+    scene.add(target);
 
     function randPos(range=3){return (Math.random()*2-1)*range}
     function placeTarget(){ target.position.set(randPos(), 0.35, randPos()); }
@@ -81,22 +99,30 @@
     const finalEl = document.getElementById('final');
 
     function reset(){
-      score=0; timeLeft=30; running=true; hudScore.textContent='0'; hudTime.textContent='30';
-      player.position.set(0,0.5,0); placeTarget(); overlay.style.display='none';
+      score=0; timeLeft=30; running=true;
+      hudScore.textContent='0'; hudTime.textContent='30';
+      player.position.set(0,0.5,0);
+      placeTarget();
+      overlay.style.display='none';
     }
     document.getElementById('reset').onclick = reset;
 
     // Timer
-    const timer = setInterval(()=>{
-      if(!running) return; timeLeft--; hudTime.textContent=String(timeLeft);
-      if(timeLeft<=0){ running=false; finalEl.textContent=String(score); overlay.style.display='grid'; }
+    setInterval(()=>{
+      if(!running) return;
+      timeLeft--;
+      hudTime.textContent=String(timeLeft);
+      if(timeLeft<=0){
+        running=false;
+        finalEl.textContent=String(score);
+        overlay.style.display='grid';
+      }
     },1000);
 
     // Loop
     let last = performance.now();
     function frame(now){
       const dt = Math.min(0.05,(now-last)/1000); last = now;
-      // movement
       if(running){
         let vx=0,vz=0;
         if(keys['w']||keys['arrowup']) vz-=1;
@@ -106,12 +132,16 @@
         const len = Math.hypot(vx,vz)||1;
         player.position.x = Math.max(-3, Math.min(3, player.position.x + (vx/len)*speed*dt));
         player.position.z = Math.max(-3, Math.min(3, player.position.z + (vz/len)*speed*dt));
-        // spin target
+
         target.rotation.y += dt*2;
-        // collect
+
         const dx = player.position.x - target.position.x;
         const dz = player.position.z - target.position.z;
-        if(dx*dx + dz*dz < 0.36){ score++; hudScore.textContent=String(score); placeTarget(); }
+        if(dx*dx + dz*dz < 0.36){
+          score++;
+          hudScore.textContent=String(score);
+          placeTarget();
+        }
       }
       renderer.render(scene,camera);
       requestAnimationFrame(frame);
@@ -121,7 +151,8 @@
     // Resize
     addEventListener('resize', ()=>{
       renderer.setSize(innerWidth, innerHeight);
-      camera.left=-6; camera.right=6; camera.top=6; camera.bottom=-6; camera.updateProjectionMatrix();
+      camera.left=-6; camera.right=6; camera.top=6; camera.bottom=-6;
+      camera.updateProjectionMatrix();
     });
   </script>
   <noscript>Enable JavaScript.</noscript>
