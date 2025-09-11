@@ -13,7 +13,7 @@ pomoci  `cursor`  a  `chatGPT` a jeste budu delat hry ale ted je jenom **square 
 
 a tohlensto je vse
 
-[klikni a hraj](ttps://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index.html)
+[klikni  hraj](ttps://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index.html)
 
 a skus me porazit `2400`  **score**
 
