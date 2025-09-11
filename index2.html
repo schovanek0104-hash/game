@@ -13,148 +13,186 @@
   </style>
 </head>
 <body>
-  <div id="hud">Score: <span id="score">0</span> | Time: <span id="time">30</span>s</div>
-  <div id="overlay">
-    <div id="card">
-      <div style="font-weight:700;margin-bottom:8px">Time up</div>
-      <div>Final score: <span id="final">0</span></div>
-      <button id="reset" style="margin-top:12px;padding:8px 12px;border-radius:10px;border:0;background:black;color:white">Play again</button>
-    </div>
+<!-- Heads-up display with score and time -->
+<div id="hud">Score: <span id="score">0</span> | Time: <span id="time">30</span>s</div>
+
+<!-- Overlay that shows when the game is over -->
+<div id="overlay">
+  <div id="card">
+    <div style="font-weight:700;margin-bottom:8px">Time up</div>
+    <div>Final score: <span id="final">0</span></div>
+    <button id="reset" style="margin-top:12px;padding:8px 12px;border-radius:10px;border:0;background:black;color:white">Play again</button>
   </div>
+</div>
 
-  <!-- Three.js globální -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script>
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
+<script type="module">
+  import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
-    // Scene + Camera
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-    const camera = new THREE.OrthographicCamera(-6,6,6,-6,0.1,100);
-    camera.position.set(8,8,8);
-    camera.lookAt(0,0,0);
+  // === GAME CONSTANTS ===
+  const WORLD_SIZE = 12;          // Size of the square play area
+  const HALF_WORLD = WORLD_SIZE/2;// Half-size, for placing walls and bounds
+  const PLAYER_SIZE = 1;          // Width/height/depth of player cube
+  const PLAYER_SPEED = 3;         // Units per second
+  const TARGET_SIZE = 0.35;       // Radius of the collectible
+  const GAME_TIME = 30;           // Seconds per round
+  const COLLISION_DISTANCE = 0.6; // Distance threshold to count as collected
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0xffffff,0.6));
-    const dir = new THREE.DirectionalLight(0xffffff,1);
-    dir.position.set(5,10,5);
-    dir.castShadow = true;
-    scene.add(dir);
+  // === RENDERER (draws everything) ===
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  document.body.appendChild(renderer.domElement);
 
-    // Ground (8×8)
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(8,8),
-      new THREE.MeshStandardMaterial({color:0x3a3a3a})
-    );
-    ground.rotation.x = -Math.PI/2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+  // === SCENE (container for all 3D objects) ===
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
 
-    // Walls
-    const wallMat = new THREE.MeshStandardMaterial({color:0x222222});
-    function makeWall(x,z,ry){
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.1,1,8), wallMat);
-      m.position.set(x,0.5,z);
-      m.rotation.y = ry;
-      scene.add(m);
-    }
-    makeWall(-4,0,0);
-    makeWall(4,0,0);
-    makeWall(0,-4,Math.PI/2);
-    makeWall(0,4,Math.PI/2);
+  // === CAMERA (like our eyes) ===
+  const camera = new THREE.OrthographicCamera(-HALF_WORLD,HALF_WORLD,HALF_WORLD,-HALF_WORLD,0.1,100);
+  camera.position.set(8,8,8); // put the camera diagonally above
+  camera.lookAt(0,0,0);       // look at the center of the world
 
-    // Player
-    const player = new THREE.Mesh(
-      new THREE.BoxGeometry(1,1,1),
-      new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.5})
-    );
-    player.position.y = 0.5;
-    player.castShadow = true;
-    scene.add(player);
+  // === LIGHTS ===
+  scene.add(new THREE.AmbientLight(0xffffff,0.6)); // soft global light
+  const dir = new THREE.DirectionalLight(0xffffff,1); // like the sun
+  dir.position.set(5,10,5);
+  dir.castShadow = true;
+  scene.add(dir);
 
-    // Target
-    const targetMat = new THREE.MeshStandardMaterial({emissive:0xffaa00, emissiveIntensity:1});
-    const target = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35,0), targetMat);
-    target.castShadow = true;
-    scene.add(target);
+  // === GROUND (the floor) ===
+  const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(WORLD_SIZE,WORLD_SIZE),
+          new THREE.MeshStandardMaterial({color:0x3a3a3a})
+  );
+  ground.rotation.x = -Math.PI/2; // lay flat
+  ground.receiveShadow = true;
+  scene.add(ground);
 
-    function randPos(range=3){return (Math.random()*2-1)*range}
-    function placeTarget(){ target.position.set(randPos(), 0.35, randPos()); }
+  // === WALLS (invisible fence around play area) ===
+  const wallMat = new THREE.MeshStandardMaterial({color:0x222222});
+  const makeWall = (x,z,ry)=>{
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.1,1,WORLD_SIZE), wallMat);
+    wall.position.set(x,0.5,z);
+    wall.rotation.y = ry;
+    scene.add(wall);
+  };
+  makeWall(-HALF_WORLD,0,0);
+  makeWall(HALF_WORLD,0,0);
+  makeWall(0,-HALF_WORLD,Math.PI/2);
+  makeWall(0,HALF_WORLD,Math.PI/2);
+
+  // === PLAYER (the cube you control) ===
+  const player = new THREE.Mesh(
+          new THREE.BoxGeometry(PLAYER_SIZE,PLAYER_SIZE,PLAYER_SIZE),
+          new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.5})
+  );
+  player.position.y = PLAYER_SIZE/2; // lift it above ground
+  player.castShadow = true;
+  scene.add(player);
+
+  // === TARGET (the glowing gem you must collect) ===
+  const targetMat = new THREE.MeshStandardMaterial({emissive:0xffaa00, emissiveIntensity:1});
+  const target = new THREE.Mesh(new THREE.IcosahedronGeometry(TARGET_SIZE,0), targetMat);
+  target.castShadow = true;
+  scene.add(target);
+
+  // Helper to place the target at a random spot
+  function randPos(range=HALF_WORLD-2){ return (Math.random()*2-1)*range; }
+  function placeTarget(){ target.position.set(randPos(), TARGET_SIZE, randPos()); }
+  placeTarget();
+
+  // === INPUT (keyboard controls) ===
+  const keys = Object.create(null);
+  addEventListener('keydown', e=> keys[e.key.toLowerCase()] = true);
+  addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
+
+  // === GAME STATE ===
+  let score=0;
+  let timeLeft=GAME_TIME;
+  let running=true;
+
+  // HUD references
+  const hudScore = document.getElementById('score');
+  const hudTime = document.getElementById('time');
+  const overlay = document.getElementById('overlay');
+  const finalEl = document.getElementById('final');
+
+  // Reset function (start new game)
+  function reset(){
+    score=0;
+    timeLeft=GAME_TIME;
+    running=true;
+    hudScore.textContent='0';
+    hudTime.textContent=String(GAME_TIME);
+    player.position.set(0,PLAYER_SIZE/2,0);
     placeTarget();
+    overlay.style.display='none';
+  }
+  document.getElementById('reset').onclick = reset;
 
-    // Input
-    const keys = Object.create(null);
-    addEventListener('keydown', e=> keys[e.key.toLowerCase()] = true);
-    addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
-
-    let score=0; let timeLeft=30; let running=true; const speed=3;
-    const hudScore = document.getElementById('score');
-    const hudTime = document.getElementById('time');
-    const overlay = document.getElementById('overlay');
-    const finalEl = document.getElementById('final');
-
-    function reset(){
-      score=0; timeLeft=30; running=true;
-      hudScore.textContent='0'; hudTime.textContent='30';
-      player.position.set(0,0.5,0);
-      placeTarget();
-      overlay.style.display='none';
+  // === TIMER ===
+  const timer = setInterval(()=>{
+    if(!running) return;
+    timeLeft--;
+    hudTime.textContent=String(timeLeft);
+    if(timeLeft<=0){
+      running=false;
+      finalEl.textContent=String(score);
+      overlay.style.display='grid';
     }
-    document.getElementById('reset').onclick = reset;
+  },1000);
 
-    // Timer
-    setInterval(()=>{
-      if(!running) return;
-      timeLeft--;
-      hudTime.textContent=String(timeLeft);
-      if(timeLeft<=0){
-        running=false;
-        finalEl.textContent=String(score);
-        overlay.style.display='grid';
+  // === GAME LOOP ===
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(0.05,(now-last)/1000); // seconds since last frame
+    last = now;
+
+    if(running){
+      // movement input
+      let vx=0,vz=0;
+      if(keys['w']||keys['arrowup']) vz-=1;
+      if(keys['s']||keys['arrowdown']) vz+=1;
+      if(keys['a']||keys['arrowleft']) vx-=1;
+      if(keys['d']||keys['arrowright']) vx+=1;
+
+      // normalize diagonal movement
+      const len = Math.hypot(vx,vz)||1;
+
+      // move player and keep inside bounds
+      player.position.x = Math.max(-HALF_WORLD+1, Math.min(HALF_WORLD-1, player.position.x + (vx/len)*PLAYER_SPEED*dt));
+      player.position.z = Math.max(-HALF_WORLD+1, Math.min(HALF_WORLD-1, player.position.z + (vz/len)*PLAYER_SPEED*dt));
+
+      // spin target for nice effect
+      target.rotation.y += dt*2;
+
+      // check if player is close enough to collect target
+      const dx = player.position.x - target.position.x;
+      const dz = player.position.z - target.position.z;
+      if(dx*dx + dz*dz < COLLISION_DISTANCE*COLLISION_DISTANCE){
+        score++;
+        hudScore.textContent=String(score);
+        placeTarget();
       }
-    },1000);
-
-    // Loop
-    let last = performance.now();
-    function frame(now){
-      const dt = Math.min(0.05,(now-last)/1000); last = now;
-      if(running){
-        let vx=0,vz=0;
-        if(keys['w']||keys['arrowup']) vz-=1;
-        if(keys['s']||keys['arrowdown']) vz+=1;
-        if(keys['a']||keys['arrowleft']) vx-=1;
-        if(keys['d']||keys['arrowright']) vx+=1;
-        const len = Math.hypot(vx,vz)||1;
-        player.position.x = Math.max(-3, Math.min(3, player.position.x + (vx/len)*speed*dt));
-        player.position.z = Math.max(-3, Math.min(3, player.position.z + (vz/len)*speed*dt));
-
-        target.rotation.y += dt*2;
-
-        const dx = player.position.x - target.position.x;
-        const dz = player.position.z - target.position.z;
-        if(dx*dx + dz*dz < 0.36){
-          score++;
-          hudScore.textContent=String(score);
-          placeTarget();
-        }
-      }
-      renderer.render(scene,camera);
-      requestAnimationFrame(frame);
     }
+
+    // draw scene
+    renderer.render(scene,camera);
     requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 
-    // Resize
-    addEventListener('resize', ()=>{
-      renderer.setSize(innerWidth, innerHeight);
-      camera.left=-6; camera.right=6; camera.top=6; camera.bottom=-6;
-      camera.updateProjectionMatrix();
-    });
-  </script>
-  <noscript>Enable JavaScript.</noscript>
+  // === RESIZE HANDLER ===
+  addEventListener('resize', ()=>{
+    renderer.setSize(innerWidth, innerHeight);
+    camera.left=-HALF_WORLD;
+    camera.right=HALF_WORLD;
+    camera.top=HALF_WORLD;
+    camera.bottom=-HALF_WORLD;
+    camera.updateProjectionMatrix();
+  });
+</script>
+<noscript>Enable JavaScript.</noscript>
 </body>
 </html>
