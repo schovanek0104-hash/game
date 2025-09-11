@@ -21,4 +21,4 @@ simple3D `novĕ`
 --------
 nove `3D hra` zas kdo mi pomohl `cursor` a  `chatGPT` 
 
-[klikni a hraj](https://html-preview.github.io/?url=https://github.com/schovanek0104-hash/game/blob/main/index2.html)
+[klikni a hraj](https://htmlpreview.github.io/?https://github.com/schovanek0104-hash/game/blob/main/index2.html)
